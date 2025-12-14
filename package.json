@@ -21,8 +21,9 @@
   "author": "Matthew Karsten",
   "license": "MIT",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0",
     "@ibm-cloud/ibm-key-protect": "^0.4.1",
+    "@ibm-cloud/watsonx-ai": "^1.7.5",
+    "@modelcontextprotocol/sdk": "^1.0.0",
     "ibm-cloud-sdk-core": "^5.1.0"
   }
 }
