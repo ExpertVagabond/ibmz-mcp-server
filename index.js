@@ -15,7 +15,7 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import IbmKeyProtectApiV2 from "@ibm-cloud/ibm-key-protect/ibm-key-protect/v2.js";
+import IbmKeyProtectApiV2 from "@ibm-cloud/ibm-key-protect/ibm-key-protect-api/v2.js";
 import { IamAuthenticator } from "ibm-cloud-sdk-core";
 
 // Key Protect configuration
