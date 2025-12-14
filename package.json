@@ -1,0 +1,28 @@
+{
+  "name": "ibmz-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for IBM Z mainframe integration - Key Protect HSM and z/OS Connect",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": [
+    "mcp",
+    "ibm",
+    "ibm-z",
+    "mainframe",
+    "key-protect",
+    "hsm",
+    "zos-connect",
+    "claude",
+    "anthropic"
+  ],
+  "author": "Matthew Karsten",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@ibm-cloud/ibm-key-protect": "^0.4.1",
+    "ibm-cloud-sdk-core": "^5.1.0"
+  }
+}

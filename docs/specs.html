@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Technical Specifications - IBM Z MCP Server</title>
+    <meta name="description" content="Full technical specifications for the IBM Z MCP Server">
+    <link rel="stylesheet" href="https://unpkg.com/@carbon/styles@1.50.0/css/styles.min.css">
+    <style>
+        :root {
+            --ibm-blue: #0f62fe;
+            --ibm-gray-100: #161616;
+            --ibm-gray-90: #262626;
+            --ibm-gray-80: #393939;
+            --ibm-cyan: #1192e8;
+            --ibm-purple: #8a3ffc;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'IBM Plex Sans', -apple-system, sans-serif;
+            background: var(--ibm-gray-100);
+            color: #f4f4f4;
+            line-height: 1.6;
+        }
+
+        .header {
+            background: var(--ibm-gray-90);
+            border-bottom: 1px solid var(--ibm-gray-80);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header a {
+            color: var(--ibm-cyan);
+            text-decoration: none;
+        }
+
+        .header a:hover {
+            text-decoration: underline;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 3rem 2rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 400;
+            margin-bottom: 0.5rem;
+        }
+
+        h1 span {
+            color: var(--ibm-cyan);
+        }
+
+        .subtitle {
+            color: #a8a8a8;
+            font-size: 1.1rem;
+            margin-bottom: 3rem;
+        }
+
+        h2 {
+            font-size: 1.5rem;
+            font-weight: 500;
+            margin: 3rem 0 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--ibm-gray-80);
+        }
+
+        h3 {
+            font-size: 1.25rem;
+            font-weight: 500;
+            margin: 2rem 0 1rem;
+            color: var(--ibm-purple);
+        }
+
+        p {
+            margin-bottom: 1rem;
+            color: #c6c6c6;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            background: var(--ibm-gray-90);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        th, td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--ibm-gray-80);
+        }
+
+        th {
+            background: var(--ibm-gray-80);
+            font-weight: 500;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        td:first-child {
+            font-family: 'IBM Plex Mono', monospace;
+            color: var(--ibm-cyan);
+            font-size: 0.9rem;
+        }
+
+        .code-block {
+            background: var(--ibm-gray-90);
+            border: 1px solid var(--ibm-gray-80);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            overflow-x: auto;
+        }
+
+        .code-block pre {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.9rem;
+            color: #78a9ff;
+            line-height: 1.6;
+        }
+
+        .code-block .comment {
+            color: #6f6f6f;
+        }
+
+        .code-block .string {
+            color: #42be65;
+        }
+
+        .code-block .key {
+            color: #be95ff;
+        }
+
+        .warning {
+            background: rgba(250, 77, 86, 0.1);
+            border-left: 4px solid #fa4d56;
+            padding: 1rem 1.5rem;
+            margin: 1rem 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .warning p {
+            color: #fa4d56;
+            margin: 0;
+        }
+
+        .info {
+            background: rgba(17, 146, 232, 0.1);
+            border-left: 4px solid var(--ibm-cyan);
+            padding: 1rem 1.5rem;
+            margin: 1rem 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .info p {
+            color: var(--ibm-cyan);
+            margin: 0;
+        }
+
+        ul {
+            margin: 1rem 0 1rem 1.5rem;
+            color: #c6c6c6;
+        }
+
+        li {
+            margin-bottom: 0.5rem;
+        }
+
+        code {
+            font-family: 'IBM Plex Mono', monospace;
+            background: var(--ibm-gray-80);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+
+        footer {
+            border-top: 1px solid var(--ibm-gray-80);
+            padding: 2rem;
+            text-align: center;
+            color: #6f6f6f;
+            margin-top: 3rem;
+        }
+
+        footer a {
+            color: var(--ibm-cyan);
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="index.html">&larr; Back to Home</a>
+        <a href="https://github.com/PurpleSquirrelMedia/ibmz-mcp-server">GitHub</a>
+    </div>
+
+    <div class="container">
+        <h1>Technical <span>Specifications</span></h1>
+        <p class="subtitle">IBM Z MCP Server v1.0.0</p>
+
+        <h2>Environment Variables</h2>
+
+        <h3>Key Protect Configuration</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Variable</th>
+                    <th>Required</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>IBM_CLOUD_API_KEY</td>
+                    <td>Yes</td>
+                    <td>IBM Cloud API key with access to Key Protect</td>
+                </tr>
+                <tr>
+                    <td>KEY_PROTECT_INSTANCE_ID</td>
+                    <td>Yes</td>
+                    <td>GUID of your Key Protect service instance</td>
+                </tr>
+                <tr>
+                    <td>KEY_PROTECT_URL</td>
+                    <td>No</td>
+                    <td>Key Protect endpoint (default: https://us-south.kms.cloud.ibm.com)</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>z/OS Connect Configuration</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Variable</th>
+                    <th>Required</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>ZOS_CONNECT_URL</td>
+                    <td>Yes*</td>
+                    <td>Base URL of z/OS Connect server (e.g., https://mainframe:9443)</td>
+                </tr>
+                <tr>
+                    <td>ZOS_CONNECT_USERNAME</td>
+                    <td>No</td>
+                    <td>Username for basic authentication</td>
+                </tr>
+                <tr>
+                    <td>ZOS_CONNECT_PASSWORD</td>
+                    <td>No</td>
+                    <td>Password for basic authentication</td>
+                </tr>
+            </tbody>
+        </table>
+        <p><em>* Required only if using z/OS Connect tools</em></p>
+
+        <h2>Key Protect Tool Specifications</h2>
+
+        <h3>key_protect_list_keys</h3>
+        <p>List encryption keys in your Key Protect instance.</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Parameter</th>
+                    <th>Type</th>
+                    <th>Required</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>limit</td>
+                    <td>number</td>
+                    <td>No</td>
+                    <td>Maximum keys to return (default: 100)</td>
+                </tr>
+                <tr>
+                    <td>offset</td>
+                    <td>number</td>
+                    <td>No</td>
+                    <td>Number of keys to skip (default: 0)</td>
+                </tr>
+                <tr>
+                    <td>state</td>
+                    <td>array</td>
+                    <td>No</td>
+                    <td>Filter by state: 1=Active, 2=Suspended, 3=Deactivated, 5=Destroyed</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>key_protect_create_key</h3>
+        <p>Create a new encryption key in the HSM.</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Parameter</th>
+                    <th>Type</th>
+                    <th>Required</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>name</td>
+                    <td>string</td>
+                    <td>Yes</td>
+                    <td>Unique name for the key</td>
+                </tr>
+                <tr>
+                    <td>description</td>
+                    <td>string</td>
+                    <td>No</td>
+                    <td>Description of key purpose</td>
+                </tr>
+                <tr>
+                    <td>type</td>
+                    <td>string</td>
+                    <td>No</td>
+                    <td>"root_key" or "standard_key" (default)</td>
+                </tr>
+                <tr>
+                    <td>extractable</td>
+                    <td>boolean</td>
+                    <td>No</td>
+                    <td>Allow key material export (default: false)</td>
+                </tr>
+                <tr>
+                    <td>payload</td>
+                    <td>string</td>
+                    <td>No</td>
+                    <td>Base64 key material for BYOK</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>key_protect_wrap_key</h3>
+        <p>Wrap (encrypt) a data encryption key with a root key.</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Parameter</th>
+                    <th>Type</th>
+                    <th>Required</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>key_id</td>
+                    <td>string</td>
+                    <td>Yes</td>
+                    <td>ID of the root key</td>
+                </tr>
+                <tr>
+                    <td>plaintext</td>
+                    <td>string</td>
+                    <td>Yes</td>
+                    <td>Base64-encoded DEK to wrap</td>
+                </tr>
+                <tr>
+                    <td>aad</td>
+                    <td>array</td>
+                    <td>No</td>
+                    <td>Additional authenticated data</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>key_protect_unwrap_key</h3>
+        <p>Unwrap (decrypt) a wrapped data encryption key.</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Parameter</th>
+                    <th>Type</th>
+                    <th>Required</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>key_id</td>
+                    <td>string</td>
+                    <td>Yes</td>
+                    <td>ID of the root key</td>
+                </tr>
+                <tr>
+                    <td>ciphertext</td>
+                    <td>string</td>
+                    <td>Yes</td>
+                    <td>Base64-encoded wrapped DEK</td>
+                </tr>
+                <tr>
+                    <td>aad</td>
+                    <td>array</td>
+                    <td>No</td>
+                    <td>AAD (must match wrap operation)</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>key_protect_rotate_key</h3>
+        <p>Rotate a root key to a new version.</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Parameter</th>
+                    <th>Type</th>
+                    <th>Required</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>key_id</td>
+                    <td>string</td>
+                    <td>Yes</td>
+                    <td>ID of the root key to rotate</td>
+                </tr>
+                <tr>
+                    <td>payload</td>
+                    <td>string</td>
+                    <td>No</td>
+                    <td>New key material for BYOK rotation</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>key_protect_delete_key</h3>
+        <div class="warning">
+            <p><strong>WARNING:</strong> Key deletion is irreversible. Data encrypted with deleted keys becomes permanently unrecoverable.</p>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Parameter</th>
+                    <th>Type</th>
+                    <th>Required</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>key_id</td>
+                    <td>string</td>
+                    <td>Yes</td>
+                    <td>ID of the key to delete</td>
+                </tr>
+                <tr>
+                    <td>force</td>
+                    <td>boolean</td>
+                    <td>No</td>
+                    <td>Force delete even with associated resources</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>z/OS Connect Tool Specifications</h2>
+
+        <div class="info">
+            <p><strong>Note:</strong> z/OS Connect requires access to an IBM mainframe with z/OS Connect EE installed. These tools will return configuration errors if ZOS_CONNECT_URL is not set.</p>
+        </div>
+
+        <h3>zos_connect_list_services</h3>
+        <p>List all deployed z/OS Connect services.</p>
+        <p>No parameters required.</p>
+
+        <h3>zos_connect_call_service</h3>
+        <p>Call a z/OS Connect service to interact with mainframe programs.</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Parameter</th>
+                    <th>Type</th>
+                    <th>Required</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>service_name</td>
+                    <td>string</td>
+                    <td>Yes</td>
+                    <td>Name of the z/OS Connect service</td>
+                </tr>
+                <tr>
+                    <td>operation</td>
+                    <td>string</td>
+                    <td>No</td>
+                    <td>API operation path (default: "/")</td>
+                </tr>
+                <tr>
+                    <td>method</td>
+                    <td>string</td>
+                    <td>No</td>
+                    <td>HTTP method: GET, POST, PUT, DELETE, PATCH</td>
+                </tr>
+                <tr>
+                    <td>payload</td>
+                    <td>object</td>
+                    <td>No</td>
+                    <td>JSON request body</td>
+                </tr>
+                <tr>
+                    <td>path_params</td>
+                    <td>object</td>
+                    <td>No</td>
+                    <td>Path parameter substitutions</td>
+                </tr>
+                <tr>
+                    <td>query_params</td>
+                    <td>object</td>
+                    <td>No</td>
+                    <td>Query string parameters</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>Dependencies</h2>
+        <div class="code-block">
+<pre>{
+  <span class="key">"@modelcontextprotocol/sdk"</span>: <span class="string">"^1.0.0"</span>,
+  <span class="key">"@ibm-cloud/key-protect"</span>: <span class="string">"^0.12.0"</span>,
+  <span class="key">"ibm-cloud-sdk-core"</span>: <span class="string">"^5.1.0"</span>
+}</pre>
+        </div>
+
+        <h2>Security Considerations</h2>
+
+        <h3>Key Protect</h3>
+        <ul>
+            <li>Keys are stored in FIPS 140-2 Level 3 certified HSMs</li>
+            <li>Root keys never leave the HSM hardware</li>
+            <li>All API calls use TLS 1.2+ encryption</li>
+            <li>IAM authentication required for all operations</li>
+            <li>Activity Tracker logs all key operations</li>
+        </ul>
+
+        <h3>z/OS Connect</h3>
+        <ul>
+            <li>Supports TLS/SSL for transport security</li>
+            <li>Basic authentication or SAF-based security</li>
+            <li>Credentials should be stored securely (not in code)</li>
+            <li>Network access typically requires VPN or private connection</li>
+        </ul>
+
+        <h2>Error Handling</h2>
+        <p>All tools return structured error messages:</p>
+        <div class="code-block">
+<pre>{
+  <span class="key">"content"</span>: [{
+    <span class="key">"type"</span>: <span class="string">"text"</span>,
+    <span class="key">"text"</span>: <span class="string">"Error: Key Protect not configured. Set IBM_CLOUD_API_KEY and KEY_PROTECT_INSTANCE_ID environment variables."</span>
+  }]
+}</pre>
+        </div>
+
+        <h2>Claude Code Configuration</h2>
+        <div class="code-block">
+<pre><span class="comment">// ~/.claude.json</span>
+{
+  <span class="key">"mcpServers"</span>: {
+    <span class="key">"ibmz"</span>: {
+      <span class="key">"type"</span>: <span class="string">"stdio"</span>,
+      <span class="key">"command"</span>: <span class="string">"node"</span>,
+      <span class="key">"args"</span>: [<span class="string">"/path/to/ibmz-mcp-server/index.js"</span>],
+      <span class="key">"env"</span>: {
+        <span class="key">"IBM_CLOUD_API_KEY"</span>: <span class="string">"your-ibm-cloud-api-key"</span>,
+        <span class="key">"KEY_PROTECT_INSTANCE_ID"</span>: <span class="string">"your-key-protect-instance-id"</span>,
+        <span class="key">"KEY_PROTECT_URL"</span>: <span class="string">"https://us-south.kms.cloud.ibm.com"</span>,
+        <span class="comment">// Optional: z/OS Connect configuration</span>
+        <span class="key">"ZOS_CONNECT_URL"</span>: <span class="string">"https://your-mainframe:9443"</span>,
+        <span class="key">"ZOS_CONNECT_USERNAME"</span>: <span class="string">"your-username"</span>,
+        <span class="key">"ZOS_CONNECT_PASSWORD"</span>: <span class="string">"your-password"</span>
+      }
+    }
+  }
+}</pre>
+        </div>
+
+        <h2>Regional Endpoints</h2>
+        <h3>Key Protect</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Region</th>
+                    <th>Endpoint</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>us-south</td>
+                    <td>https://us-south.kms.cloud.ibm.com</td>
+                </tr>
+                <tr>
+                    <td>us-east</td>
+                    <td>https://us-east.kms.cloud.ibm.com</td>
+                </tr>
+                <tr>
+                    <td>eu-gb</td>
+                    <td>https://eu-gb.kms.cloud.ibm.com</td>
+                </tr>
+                <tr>
+                    <td>eu-de</td>
+                    <td>https://eu-de.kms.cloud.ibm.com</td>
+                </tr>
+                <tr>
+                    <td>jp-tok</td>
+                    <td>https://jp-tok.kms.cloud.ibm.com</td>
+                </tr>
+                <tr>
+                    <td>au-syd</td>
+                    <td>https://au-syd.kms.cloud.ibm.com</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <footer>
+        <p>
+            <a href="index.html">Home</a> |
+            <a href="https://github.com/PurpleSquirrelMedia/ibmz-mcp-server">GitHub</a> |
+            MIT License
+        </p>
+    </footer>
+</body>
+</html>
