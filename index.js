@@ -396,24 +396,34 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
 
         case "key_protect_create_key": {
-          const keyType = args.type === "root_key" ? "root_key" : "standard_key";
+          const isRootKey = args.type === "root_key";
 
-          const params = {
-            bluemixInstance: KEY_PROTECT_INSTANCE_ID,
+          const keyResource = {
+            type: "application/vnd.ibm.kms.key+json",
             name: args.name,
-            type: keyType,
-            extractable: args.extractable || false,
+            extractable: isRootKey ? false : (args.extractable || false),
           };
 
           if (args.description) {
-            params.description = args.description;
+            keyResource.description = args.description;
           }
 
           if (args.payload) {
-            params.payload = args.payload;
+            keyResource.payload = args.payload;
           }
 
-          const response = await kpClient.createKey(params);
+          const keyCreateBody = {
+            metadata: {
+              collectionType: "application/vnd.ibm.kms.key+json",
+              collectionTotal: 1,
+            },
+            resources: [keyResource],
+          };
+
+          const response = await kpClient.createKey({
+            bluemixInstance: KEY_PROTECT_INSTANCE_ID,
+            keyCreateBody,
+          });
 
           return {
             content: [{
@@ -447,17 +457,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
 
         case "key_protect_wrap_key": {
-          const params = {
-            bluemixInstance: KEY_PROTECT_INSTANCE_ID,
-            id: args.key_id,
+          const keyActionWrapBody = {
             plaintext: args.plaintext,
           };
 
           if (args.aad) {
-            params.aad = args.aad;
+            keyActionWrapBody.aad = args.aad;
           }
 
-          const response = await kpClient.wrapKey(params);
+          const response = await kpClient.wrapKey({
+            id: args.key_id,
+            bluemixInstance: KEY_PROTECT_INSTANCE_ID,
+            keyActionWrapBody,
+          });
 
           return {
             content: [{
@@ -472,17 +484,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
 
         case "key_protect_unwrap_key": {
-          const params = {
-            bluemixInstance: KEY_PROTECT_INSTANCE_ID,
-            id: args.key_id,
+          const keyActionUnwrapBody = {
             ciphertext: args.ciphertext,
           };
 
           if (args.aad) {
-            params.aad = args.aad;
+            keyActionUnwrapBody.aad = args.aad;
           }
 
-          const response = await kpClient.unwrapKey(params);
+          const response = await kpClient.unwrapKey({
+            id: args.key_id,
+            bluemixInstance: KEY_PROTECT_INSTANCE_ID,
+            keyActionUnwrapBody,
+          });
 
           return {
             content: [{
@@ -498,12 +512,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         case "key_protect_rotate_key": {
           const params = {
-            bluemixInstance: KEY_PROTECT_INSTANCE_ID,
             id: args.key_id,
+            bluemixInstance: KEY_PROTECT_INSTANCE_ID,
           };
 
           if (args.payload) {
-            params.payload = args.payload;
+            params.keyActionRotateBody = {
+              payload: args.payload,
+            };
           }
 
           await kpClient.rotateKey(params);
