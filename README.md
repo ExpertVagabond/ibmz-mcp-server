@@ -147,11 +147,49 @@ For z/OS Connect, you need:
 - z/OS Connect EE installed
 - Network access from your machine
 
+## Demo Scripts
+
+Run these demos to test the integration:
+
+```bash
+# Test envelope encryption (HSM wrap/unwrap)
+node test-envelope-encryption.js
+
+# Full Watson services suite (NLU, STT, TTS, Key Protect, Cloudant, watsonx)
+node demo-watson-suite.js
+
+# End-to-end workflow (NLU → Key Protect → Cloudant → Decrypt)
+node demo-e2e-workflow.js
+
+# Test watsonx.ai models
+node test-watsonx-generation.js
+```
+
+### Watson Services Tested
+
+| Service | Status | Details |
+|---------|--------|---------|
+| Watson NLU | ✅ | Sentiment, entities, emotions |
+| Watson STT | ✅ | 87 speech models |
+| Watson TTS | ✅ | 65 voices |
+| Key Protect | ✅ | FIPS 140-2 Level 3 HSM |
+| Cloudant | ✅ | NoSQL database |
+| watsonx.ai | ✅ | 28 foundation models |
+
 ## Files
 
 - `index.js` - MCP server implementation
 - `package.json` - Dependencies
 - `docs/` - GitHub Pages documentation
+- `demo-watson-suite.js` - Complete Watson services test
+- `demo-e2e-workflow.js` - End-to-end encryption workflow
+- `test-envelope-encryption.js` - HSM wrap/unwrap test
+- `test-watsonx-generation.js` - watsonx models test
+- `ibm-integration-demo.js` - Quick integration test
+
+## Related MCP Servers
+
+- [watsonx-mcp-server](https://github.com/PurpleSquirrelMedia/watsonx-mcp-server) - Foundation models (Granite, Llama, Mistral)
 
 ## Author
 
