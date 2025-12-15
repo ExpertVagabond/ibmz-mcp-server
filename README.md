@@ -152,40 +152,33 @@ For z/OS Connect, you need:
 Run these demos to test the integration:
 
 ```bash
+# Full envelope encryption demo (recommended)
+IBM_CLOUD_API_KEY="your-key" \
+KEY_PROTECT_INSTANCE_ID="your-instance-id" \
+node demo-integration.js
+
 # Test envelope encryption (HSM wrap/unwrap)
-node test-envelope-encryption.js
-
-# Full Watson services suite (NLU, STT, TTS, Key Protect, Cloudant, watsonx)
-node demo-watson-suite.js
-
-# End-to-end workflow (NLU → Key Protect → Cloudant → Decrypt)
-node demo-e2e-workflow.js
-
-# Test watsonx.ai models
-node test-watsonx-generation.js
+node test-keyprotect.js
 ```
 
-### Watson Services Tested
+### Key Protect Status
 
-| Service | Status | Details |
-|---------|--------|---------|
-| Watson NLU | ✅ | Sentiment, entities, emotions |
-| Watson STT | ✅ | 87 speech models |
-| Watson TTS | ✅ | 65 voices |
-| Key Protect | ✅ | FIPS 140-2 Level 3 HSM |
-| Cloudant | ✅ | NoSQL database |
-| watsonx.ai | ✅ | 28 foundation models |
+| Feature | Status |
+|---------|--------|
+| List Keys | ✅ Working |
+| Create Key | ✅ Working |
+| Wrap DEK | ✅ Working |
+| Unwrap DEK | ✅ Working |
+| Rotate Key | ✅ Working |
+| Delete Key | ✅ Working |
 
 ## Files
 
 - `index.js` - MCP server implementation
 - `package.json` - Dependencies
 - `docs/` - GitHub Pages documentation
-- `demo-watson-suite.js` - Complete Watson services test
-- `demo-e2e-workflow.js` - End-to-end encryption workflow
-- `test-envelope-encryption.js` - HSM wrap/unwrap test
-- `test-watsonx-generation.js` - watsonx models test
-- `ibm-integration-demo.js` - Quick integration test
+- `demo-integration.js` - Full envelope encryption workflow demo
+- `test-keyprotect.js` - HSM wrap/unwrap test
 
 ## Related MCP Servers
 
