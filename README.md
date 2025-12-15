@@ -152,33 +152,52 @@ For z/OS Connect, you need:
 Run these demos to test the integration:
 
 ```bash
-# Full envelope encryption demo (recommended)
-IBM_CLOUD_API_KEY="your-key" \
-KEY_PROTECT_INSTANCE_ID="your-instance-id" \
-node demo-integration.js
+# Set environment
+export IBM_CLOUD_API_KEY="your-key"
+export KEY_PROTECT_INSTANCE_ID="your-instance-id"
+
+# Full 5-service pipeline (NLU → watsonx → Key Protect → Cloudant → TTS)
+node demo-full-stack.js
+
+# End-to-end workflow (NLU → Key Protect → Cloudant)
+node demo-e2e-workflow.js
 
 # Test envelope encryption (HSM wrap/unwrap)
-node test-keyprotect.js
+node test-envelope-encryption.js
+
+# Watson services suite test
+node demo-watson-suite.js
 ```
 
-### Key Protect Status
+### Integration Status (Verified Dec 15, 2025)
 
-| Feature | Status |
-|---------|--------|
-| List Keys | ✅ Working |
-| Create Key | ✅ Working |
-| Wrap DEK | ✅ Working |
-| Unwrap DEK | ✅ Working |
-| Rotate Key | ✅ Working |
-| Delete Key | ✅ Working |
+| Service | Feature | Status |
+|---------|---------|--------|
+| Key Protect | List Keys | ✅ Working |
+| Key Protect | Create Key | ✅ Working |
+| Key Protect | Wrap DEK | ✅ Working |
+| Key Protect | Unwrap DEK | ✅ Working |
+| Key Protect | Rotate Key | ✅ Working |
+| watsonx.ai | List Models | ✅ Working |
+| Watson NLU | Sentiment/Entities | ✅ Working |
+| Watson TTS | Voice Synthesis | ✅ Working |
+| Cloudant | Document Storage | ✅ Working |
 
 ## Files
 
-- `index.js` - MCP server implementation
-- `package.json` - Dependencies
-- `docs/` - GitHub Pages documentation
-- `demo-integration.js` - Full envelope encryption workflow demo
-- `test-keyprotect.js` - HSM wrap/unwrap test
+```
+ibmz-mcp-server/
+├── index.js                    # MCP server implementation
+├── package.json                # Dependencies
+├── docs/                       # GitHub Pages documentation
+│   ├── index.html             # Main documentation
+│   └── specs.html             # Technical specifications
+├── demo-full-stack.js          # Full 5-service pipeline
+├── demo-e2e-workflow.js        # NLU → Key Protect → Cloudant
+├── demo-watson-suite.js        # All Watson services test
+├── test-envelope-encryption.js # HSM wrap/unwrap test
+└── README.md                   # This file
+```
 
 ## Related MCP Servers
 
