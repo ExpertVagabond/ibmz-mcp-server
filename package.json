@@ -1,9 +1,13 @@
 {
   "name": "ibmz-mcp-server",
-  "version": "1.0.0",
+  "mcpName": "io.github.ExpertVagabond/ibmz",
+  "version": "1.0.1",
   "description": "MCP server for IBM Z mainframe integration - Key Protect HSM and z/OS Connect",
   "main": "index.js",
   "type": "module",
+  "bin": {
+    "ibmz-mcp-server": "index.js"
+  },
   "scripts": {
     "start": "node index.js"
   },
@@ -20,6 +24,11 @@
   ],
   "author": "Matthew Karsten",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ExpertVagabond/ibmz-mcp-server.git"
+  },
+  "homepage": "https://github.com/ExpertVagabond/ibmz-mcp-server#readme",
   "dependencies": {
     "@ibm-cloud/ibm-key-protect": "^0.4.1",
     "@ibm-cloud/watsonx-ai": "^1.7.5",
