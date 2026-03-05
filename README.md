@@ -1,65 +1,43 @@
-# IBM Z MCP Server
+# ibmz-mcp-server
 
-MCP server for IBM Z mainframe integration with Claude Code. Provides access to enterprise-grade security and mainframe capabilities.
+[\![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[\![MCP](https://img.shields.io/badge/MCP-Compatible-blue.svg)](https://modelcontextprotocol.io)
+[\![npm](https://img.shields.io/badge/npm-ibmz--mcp--server-red.svg)](https://www.npmjs.com/package/ibmz-mcp-server)
 
-## Features
+MCP server for IBM Z mainframe integration. Provides HSM-backed key management via IBM Key Protect (FIPS 140-2 Level 3) and REST API access to mainframe programs (CICS, IMS, batch) via z/OS Connect.
 
-- **Key Protect** - HSM-backed key management (FIPS 140-2 Level 3)
-- **z/OS Connect** - REST APIs to mainframe programs (CICS, IMS, batch)
+## Tools (12 total)
 
-## Available Tools
-
-### Key Protect (HSM Key Management)
+### Key Protect -- HSM Key Management
 
 | Tool | Description |
 |------|-------------|
 | `key_protect_list_keys` | List encryption keys in Key Protect |
 | `key_protect_create_key` | Create root or standard keys |
 | `key_protect_get_key` | Get key details and metadata |
-| `key_protect_wrap_key` | Wrap (encrypt) DEKs with a root key |
-| `key_protect_unwrap_key` | Unwrap (decrypt) wrapped DEKs |
+| `key_protect_wrap_key` | Wrap (encrypt) a DEK with a root key |
+| `key_protect_unwrap_key` | Unwrap (decrypt) a wrapped DEK |
 | `key_protect_rotate_key` | Rotate a root key |
 | `key_protect_delete_key` | Delete a key (irreversible) |
-| `key_protect_get_key_policies` | Get key policies |
+| `key_protect_get_key_policies` | Get rotation and dual-auth policies |
 
-### z/OS Connect (Mainframe Integration)
+### z/OS Connect -- Mainframe Integration
 
 | Tool | Description |
 |------|-------------|
 | `zos_connect_list_services` | List available mainframe services |
 | `zos_connect_get_service` | Get service details and OpenAPI spec |
-| `zos_connect_call_service` | Call a mainframe service via REST |
-| `zos_connect_list_apis` | List API requester configurations |
+| `zos_connect_call_service` | Call a mainframe program via REST (JSON to COBOL) |
+| `zos_connect_list_apis` | List outbound API configurations |
 | `zos_connect_health` | Check z/OS Connect server health |
 
-## Setup
-
-### 1. Install Dependencies
+## Install
 
 ```bash
-cd ~/ibmz-mcp-server
 npm install
 ```
 
-### 2. Configure Environment
-
-**For Key Protect:**
-```bash
-IBM_CLOUD_API_KEY=your-ibm-cloud-api-key
-KEY_PROTECT_INSTANCE_ID=your-key-protect-instance-id
-KEY_PROTECT_URL=https://us-south.kms.cloud.ibm.com
-```
-
-**For z/OS Connect (requires mainframe access):**
-```bash
-ZOS_CONNECT_URL=https://your-mainframe:9443/zosConnect
-ZOS_CONNECT_USERNAME=your-username
-ZOS_CONNECT_PASSWORD=your-password
-```
-
-### 3. Add to Claude Code
-
-Add to `~/.claude.json`:
+## Configuration
 
 ```json
 {
@@ -67,146 +45,44 @@ Add to `~/.claude.json`:
     "ibmz": {
       "type": "stdio",
       "command": "node",
-      "args": ["/Users/matthewkarsten/ibmz-mcp-server/index.js"],
+      "args": ["/path/to/ibmz-mcp-server/index.js"],
       "env": {
         "IBM_CLOUD_API_KEY": "your-api-key",
-        "KEY_PROTECT_INSTANCE_ID": "your-instance-id"
+        "KEY_PROTECT_INSTANCE_ID": "your-instance-id",
+        "KEY_PROTECT_URL": "https://us-south.kms.cloud.ibm.com"
       }
     }
   }
 }
 ```
 
-## Architecture
+### Environment Variables
 
-```
-Claude Code (Opus 4.5)
-         │
-         └──▶ IBM Z MCP Server
-                    │
-                    ├──▶ Key Protect (HSM)
-                    │         │
-                    │         └── FIPS 140-2 Level 3 HSM
-                    │
-                    └──▶ z/OS Connect
-                              │
-                              ├── CICS Transactions
-                              ├── IMS Programs
-                              └── Batch Jobs
-```
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `IBM_CLOUD_API_KEY` | IBM Cloud API key | Yes (Key Protect) |
+| `KEY_PROTECT_INSTANCE_ID` | Key Protect instance OCID | Yes (Key Protect) |
+| `KEY_PROTECT_URL` | Key Protect endpoint | No (defaults to us-south) |
+| `ZOS_CONNECT_URL` | z/OS Connect base URL | Yes (z/OS Connect) |
+| `ZOS_CONNECT_USERNAME` | Mainframe username | Yes (z/OS Connect) |
+| `ZOS_CONNECT_PASSWORD` | Mainframe password | Yes (z/OS Connect) |
 
 ## Key Concepts
 
-### Envelope Encryption with Key Protect
+### Envelope Encryption
 
-Key Protect enables envelope encryption:
+Root keys (KEK) are stored in the HSM and never leave the hardware. Data encryption keys (DEK) are wrapped by root keys for safe storage alongside ciphertext.
 
-1. **Root Keys (KEK)** - Stored in HSM, never leave the hardware
-2. **Data Encryption Keys (DEK)** - Wrapped by root keys
-3. **Wrap/Unwrap** - Operations to protect DEKs
+### z/OS Connect
 
-```
-Data → Encrypt with DEK → Ciphertext
-DEK  → Wrap with KEK   → Wrapped DEK (stored alongside ciphertext)
-```
+REST APIs that automatically map JSON payloads to COBOL copybooks, enabling access to CICS transactions, IMS programs, and batch jobs.
 
-### z/OS Connect Integration
+## Dependencies
 
-z/OS Connect provides REST APIs to mainframe programs:
-
-- **CICS** - Online transaction processing
-- **IMS** - Hierarchical database and transactions
-- **Batch** - Scheduled batch processing
-- **Db2** - Relational database access
-
-JSON payloads are automatically mapped to COBOL copybooks.
-
-## Use Cases
-
-### Enterprise Key Management
-- Manage encryption keys for cloud workloads
-- Bring Your Own Key (BYOK) to IBM Cloud services
-- Key rotation for compliance
-- Envelope encryption for data at rest
-
-### Mainframe Modernization
-- Expose COBOL programs as REST APIs
-- Integrate mainframe data with cloud applications
-- AI-powered mainframe operations via Claude
-- Modernize without rewriting legacy code
-
-## IBM Cloud Resources
-
-This MCP server can use:
-- **Service**: Key Protect
-- **Plan**: Tiered (first 20 keys free)
-- **Region**: us-south
-
-For z/OS Connect, you need:
-- IBM mainframe with z/OS
-- z/OS Connect EE installed
-- Network access from your machine
-
-## Demo Scripts
-
-Run these demos to test the integration:
-
-```bash
-# Set environment
-export IBM_CLOUD_API_KEY="your-key"
-export KEY_PROTECT_INSTANCE_ID="your-instance-id"
-
-# Full 5-service pipeline (NLU → watsonx → Key Protect → Cloudant → TTS)
-node demo-full-stack.js
-
-# End-to-end workflow (NLU → Key Protect → Cloudant)
-node demo-e2e-workflow.js
-
-# Test envelope encryption (HSM wrap/unwrap)
-node test-envelope-encryption.js
-
-# Watson services suite test
-node demo-watson-suite.js
-```
-
-### Integration Status (Verified Dec 15, 2025)
-
-| Service | Feature | Status |
-|---------|---------|--------|
-| Key Protect | List Keys | ✅ Working |
-| Key Protect | Create Key | ✅ Working |
-| Key Protect | Wrap DEK | ✅ Working |
-| Key Protect | Unwrap DEK | ✅ Working |
-| Key Protect | Rotate Key | ✅ Working |
-| watsonx.ai | List Models | ✅ Working |
-| Watson NLU | Sentiment/Entities | ✅ Working |
-| Watson TTS | Voice Synthesis | ✅ Working |
-| Cloudant | Document Storage | ✅ Working |
-
-## Files
-
-```
-ibmz-mcp-server/
-├── index.js                    # MCP server implementation
-├── package.json                # Dependencies
-├── docs/                       # GitHub Pages documentation
-│   ├── index.html             # Main documentation
-│   └── specs.html             # Technical specifications
-├── demo-full-stack.js          # Full 5-service pipeline
-├── demo-e2e-workflow.js        # NLU → Key Protect → Cloudant
-├── demo-watson-suite.js        # All Watson services test
-├── test-envelope-encryption.js # HSM wrap/unwrap test
-└── README.md                   # This file
-```
-
-## Related MCP Servers
-
-- [watsonx-mcp-server](https://github.com/PurpleSquirrelMedia/watsonx-mcp-server) - Foundation models (Granite, Llama, Mistral)
-
-## Author
-
-Matthew Karsten
+- `@modelcontextprotocol/sdk` -- MCP protocol SDK
+- `@ibm-cloud/ibm-key-protect` -- Key Protect client
+- `ibm-cloud-sdk-core` -- IBM Cloud authentication
 
 ## License
 
-MIT
+[MIT](LICENSE)
