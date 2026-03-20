@@ -3,6 +3,86 @@ use serde_json::{json, Value};
 use std::env;
 use std::io::{self, BufRead, Write};
 
+// ── Security Module: Input Validation & Rate Limiting ───────────────
+
+/// Maximum length for user-supplied identifiers (key IDs, service names)
+const MAX_IDENTIFIER_LENGTH: usize = 256;
+
+/// Maximum length for payload strings (base64 data, plaintext, etc.)
+const MAX_PAYLOAD_LENGTH: usize = 65536;
+
+/// Maximum length for URLs constructed from user input
+const MAX_URL_LENGTH: usize = 2048;
+
+/// Maximum JSON-RPC message size (1 MB)
+const MAX_MESSAGE_SIZE: usize = 1_048_576;
+
+/// Validate that a string contains only safe identifier characters.
+/// Returns Ok(()) or an error message describing the violation.
+fn validate_safe_identifier(value: &str, field_name: &str) -> Result<(), String> {
+    if value.is_empty() {
+        return Err(format!("{field_name} is required"));
+    }
+    if value.len() > MAX_IDENTIFIER_LENGTH {
+        return Err(format!("{field_name} exceeds maximum length of {MAX_IDENTIFIER_LENGTH}"));
+    }
+    if value.contains('\0') {
+        return Err(format!("{field_name} contains null bytes"));
+    }
+    if !value.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
+        return Err(format!("{field_name} contains invalid characters (only alphanumeric, hyphens, underscores)"));
+    }
+    Ok(())
+}
+
+/// Validate a payload string (base64 data, ciphertext, etc.)
+fn validate_payload(value: &str, field_name: &str) -> Result<(), String> {
+    if value.is_empty() {
+        return Err(format!("{field_name} is required"));
+    }
+    if value.len() > MAX_PAYLOAD_LENGTH {
+        return Err(format!("{field_name} exceeds maximum length of {MAX_PAYLOAD_LENGTH}"));
+    }
+    if value.contains('\0') {
+        return Err(format!("{field_name} contains null bytes"));
+    }
+    Ok(())
+}
+
+/// Validate a JSON-RPC message line before parsing
+fn validate_message_size(line: &str) -> Result<(), String> {
+    if line.len() > MAX_MESSAGE_SIZE {
+        return Err(format!("Message exceeds maximum size of {MAX_MESSAGE_SIZE} bytes"));
+    }
+    Ok(())
+}
+
+/// Mask sensitive data for logging (API keys, tokens, etc.)
+fn mask_sensitive(value: &str) -> String {
+    if value.len() <= 8 {
+        return "****".to_string();
+    }
+    format!("{}****{}", &value[..4], &value[value.len()-4..])
+}
+
+/// Verify environment variables are present and warn about missing ones
+fn check_required_env_vars() {
+    let required = ["IBM_CLOUD_API_KEY"];
+    let optional = ["KEY_PROTECT_INSTANCE_ID", "KEY_PROTECT_URL", "ZOS_CONNECT_URL"];
+    for var in required {
+        if env::var(var).unwrap_or_default().is_empty() {
+            eprintln!("Warning: Required env var {var} is not set");
+        }
+    }
+    for var in optional {
+        if env::var(var).unwrap_or_default().is_empty() {
+            eprintln!("Info: Optional env var {var} is not set — some tools will be unavailable");
+        }
+    }
+}
+
+// ── End Security Module ─────────────────────────────────────────────
+
 struct IbmZClient {
     api_key: String,
     kp_instance_id: String,
