@@ -77,28 +77,74 @@ impl IbmZClient {
         resp.json::<Value>().await.map_err(|e| format!("JSON error: {e}"))
     }
 
+    /// Validate that an ID/name contains only safe characters (alphanumeric, hyphens, underscores)
+    fn validate_identifier(value: &str, field_name: &str) -> Result<(), String> {
+        if value.is_empty() {
+            return Err(format!("{field_name} is required"));
+        }
+        if value.len() > 256 {
+            return Err(format!("{field_name} exceeds maximum length"));
+        }
+        if !value.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
+            return Err(format!("{field_name} contains invalid characters"));
+        }
+        Ok(())
+    }
+
     async fn call_tool(&self, name: &str, args: &Value) -> Result<Value, String> {
         let s = |key: &str| args.get(key).and_then(|v| v.as_str()).unwrap_or("");
         match name {
             "key_protect_list_keys" => self.kp_request("GET", "keys", None).await,
             "key_protect_create_key" => {
+                let key_name = s("name");
+                Self::validate_identifier(key_name, "name")?;
                 let payload = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, s("payload").as_bytes());
                 let extractable = s("key_type") != "root_key";
-                self.kp_request("POST", "keys", Some(json!({"metadata":{"collectionType":"application/vnd.ibm.kms.key+json","collectionTotal":1},"resources":[{"type":"application/vnd.ibm.kms.key+json","name":s("name"),"extractable":extractable,"payload":payload}]}))).await
+                self.kp_request("POST", "keys", Some(json!({"metadata":{"collectionType":"application/vnd.ibm.kms.key+json","collectionTotal":1},"resources":[{"type":"application/vnd.ibm.kms.key+json","name":key_name,"extractable":extractable,"payload":payload}]}))).await
             }
-            "key_protect_get_key" => self.kp_request("GET", &format!("keys/{}", s("key_id")), None).await,
-            "key_protect_delete_key" => self.kp_request("DELETE", &format!("keys/{}", s("key_id")), None).await,
-            "key_protect_rotate_key" => self.kp_request("POST", &format!("keys/{}/actions/rotate", s("key_id")), Some(json!({}))).await,
-            "key_protect_wrap_key" => self.kp_request("POST", &format!("keys/{}/actions/wrap", s("key_id")), Some(json!({"plaintext": s("plaintext")}))).await,
-            "key_protect_unwrap_key" => self.kp_request("POST", &format!("keys/{}/actions/unwrap", s("key_id")), Some(json!({"ciphertext": s("ciphertext")}))).await,
-            "key_protect_get_key_policies" => self.kp_request("GET", &format!("keys/{}/policies", s("key_id")), None).await,
+            "key_protect_get_key" => {
+                let key_id = s("key_id");
+                Self::validate_identifier(key_id, "key_id")?;
+                self.kp_request("GET", &format!("keys/{key_id}"), None).await
+            }
+            "key_protect_delete_key" => {
+                let key_id = s("key_id");
+                Self::validate_identifier(key_id, "key_id")?;
+                self.kp_request("DELETE", &format!("keys/{key_id}"), None).await
+            }
+            "key_protect_rotate_key" => {
+                let key_id = s("key_id");
+                Self::validate_identifier(key_id, "key_id")?;
+                self.kp_request("POST", &format!("keys/{key_id}/actions/rotate"), Some(json!({}))).await
+            }
+            "key_protect_wrap_key" => {
+                let key_id = s("key_id");
+                Self::validate_identifier(key_id, "key_id")?;
+                self.kp_request("POST", &format!("keys/{key_id}/actions/wrap"), Some(json!({"plaintext": s("plaintext")}))).await
+            }
+            "key_protect_unwrap_key" => {
+                let key_id = s("key_id");
+                Self::validate_identifier(key_id, "key_id")?;
+                self.kp_request("POST", &format!("keys/{key_id}/actions/unwrap"), Some(json!({"ciphertext": s("ciphertext")}))).await
+            }
+            "key_protect_get_key_policies" => {
+                let key_id = s("key_id");
+                Self::validate_identifier(key_id, "key_id")?;
+                self.kp_request("GET", &format!("keys/{key_id}/policies"), None).await
+            }
             "zos_connect_health" => self.zos_request("GET", "/zosConnect/healthz", None).await,
             "zos_connect_list_services" => self.zos_request("GET", "/zosConnect/services", None).await,
             "zos_connect_list_apis" => self.zos_request("GET", "/zosConnect/apis", None).await,
-            "zos_connect_get_service" => self.zos_request("GET", &format!("/zosConnect/services/{}", s("service_name")), None).await,
+            "zos_connect_get_service" => {
+                let service_name = s("service_name");
+                Self::validate_identifier(service_name, "service_name")?;
+                self.zos_request("GET", &format!("/zosConnect/services/{service_name}"), None).await
+            }
             "zos_connect_call_service" => {
+                let service_name = s("service_name");
+                Self::validate_identifier(service_name, "service_name")?;
                 let body = args.get("payload").cloned().unwrap_or(json!({}));
-                self.zos_request("POST", &format!("/zosConnect/services/{}", s("service_name")), Some(body)).await
+                self.zos_request("POST", &format!("/zosConnect/services/{service_name}"), Some(body)).await
             }
             _ => Err(format!("Unknown tool: {name}")),
         }
