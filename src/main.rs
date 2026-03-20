@@ -1,3 +1,15 @@
+//! IBM z/OS MCP Server — secure bridge to IBM Cloud Key Protect and z/OS Connect.
+//!
+//! # Security Architecture
+//!
+//! This server enforces defense-in-depth for all operations:
+//! - **Input validation**: All identifiers bounded to 256 chars, alphanumeric only
+//! - **Payload limits**: Max 64 KB payloads, 1 MB JSON-RPC messages
+//! - **Credential hygiene**: API keys masked in logs via [`mask_sensitive`]
+//! - **Environment isolation**: Required vars checked at startup, optional vars warned
+//! - **No shell execution**: All operations via structured HTTP APIs
+//! - **URL construction safety**: Max 2048-char URLs, no user-controlled path segments
+
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::env;
