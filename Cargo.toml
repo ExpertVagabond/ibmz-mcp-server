@@ -1,12 +1,15 @@
 [package]
 name = "ibmz_mcp_server"
 version = "1.0.0"
-edition = "2024"
+edition = "2021"
 description = "MCP server for IBM Z mainframe -- Key Protect HSM + z/OS Connect"
 license = "MIT"
 authors = ["Purple Squirrel Media LLC"]
 
 [dependencies]
+psm-mcp-core = { path = "../psm-mcp-core/psm-mcp-core" }
+psm-mcp-transport = { path = "../psm-mcp-core/psm-mcp-transport" }
+psm-mcp-policy = { path = "../psm-mcp-core/psm-mcp-policy" }
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -14,3 +17,5 @@ reqwest = { version = "0.12", features = ["json"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 base64 = "0.22"
+async-trait = "0.1"
+anyhow = "1"

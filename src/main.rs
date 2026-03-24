@@ -3,297 +3,86 @@
 //! # Security Architecture
 //!
 //! This server enforces defense-in-depth for all operations:
-//! - **Input validation**: All identifiers bounded to 256 chars, alphanumeric only
+//! - **Input validation**: All identifiers bounded via psm-mcp-core input validators
 //! - **Payload limits**: Max 64 KB payloads, 1 MB JSON-RPC messages
-//! - **Credential hygiene**: API keys masked in logs via [`mask_sensitive`]
+//! - **Credential hygiene**: API keys masked in logs
 //! - **Environment isolation**: Required vars checked at startup, optional vars warned
 //! - **No shell execution**: All operations via structured HTTP APIs
-//! - **URL construction safety**: Max 2048-char URLs, no user-controlled path segments
+//! - **URL construction safety**: No user-controlled path segments beyond validated identifiers
 
-use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
-use std::env;
-use std::io::{self, BufRead, Write};
+mod client;
+mod tools;
 
-// ── Security Module: Input Validation & Rate Limiting ───────────────
-
-/// Maximum length for user-supplied identifiers (key IDs, service names)
-const MAX_IDENTIFIER_LENGTH: usize = 256;
-
-/// Maximum length for payload strings (base64 data, plaintext, etc.)
-const MAX_PAYLOAD_LENGTH: usize = 65536;
-
-/// Maximum length for URLs constructed from user input
-const MAX_URL_LENGTH: usize = 2048;
-
-/// Maximum JSON-RPC message size (1 MB)
-const MAX_MESSAGE_SIZE: usize = 1_048_576;
-
-/// Validate that a string contains only safe identifier characters.
-/// Returns Ok(()) or an error message describing the violation.
-fn validate_safe_identifier(value: &str, field_name: &str) -> Result<(), String> {
-    if value.is_empty() {
-        return Err(format!("{field_name} is required"));
-    }
-    if value.len() > MAX_IDENTIFIER_LENGTH {
-        return Err(format!("{field_name} exceeds maximum length of {MAX_IDENTIFIER_LENGTH}"));
-    }
-    if value.contains('\0') {
-        return Err(format!("{field_name} contains null bytes"));
-    }
-    if !value.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
-        return Err(format!("{field_name} contains invalid characters (only alphanumeric, hyphens, underscores)"));
-    }
-    Ok(())
-}
-
-/// Validate a payload string (base64 data, ciphertext, etc.)
-fn validate_payload(value: &str, field_name: &str) -> Result<(), String> {
-    if value.is_empty() {
-        return Err(format!("{field_name} is required"));
-    }
-    if value.len() > MAX_PAYLOAD_LENGTH {
-        return Err(format!("{field_name} exceeds maximum length of {MAX_PAYLOAD_LENGTH}"));
-    }
-    if value.contains('\0') {
-        return Err(format!("{field_name} contains null bytes"));
-    }
-    Ok(())
-}
-
-/// Validate a JSON-RPC message line before parsing
-fn validate_message_size(line: &str) -> Result<(), String> {
-    if line.len() > MAX_MESSAGE_SIZE {
-        return Err(format!("Message exceeds maximum size of {MAX_MESSAGE_SIZE} bytes"));
-    }
-    Ok(())
-}
-
-/// Mask sensitive data for logging (API keys, tokens, etc.)
-fn mask_sensitive(value: &str) -> String {
-    if value.len() <= 8 {
-        return "****".to_string();
-    }
-    format!("{}****{}", &value[..4], &value[value.len()-4..])
-}
-
-/// Verify environment variables are present and warn about missing ones
-fn check_required_env_vars() {
-    let required = ["IBM_CLOUD_API_KEY"];
-    let optional = ["KEY_PROTECT_INSTANCE_ID", "KEY_PROTECT_URL", "ZOS_CONNECT_URL"];
-    for var in required {
-        if env::var(var).unwrap_or_default().is_empty() {
-            eprintln!("Warning: Required env var {var} is not set");
-        }
-    }
-    for var in optional {
-        if env::var(var).unwrap_or_default().is_empty() {
-            eprintln!("Info: Optional env var {var} is not set — some tools will be unavailable");
-        }
-    }
-}
-
-// ── End Security Module ─────────────────────────────────────────────
-
-struct IbmZClient {
-    api_key: String,
-    kp_instance_id: String,
-    kp_url: String,
-    zos_url: String,
-    zos_user: String,
-    zos_pass: String,
-    http: reqwest::Client,
-    iam_token: tokio::sync::Mutex<Option<String>>,
-}
-
-impl IbmZClient {
-    fn new() -> Self {
-        Self {
-            api_key: env::var("IBM_CLOUD_API_KEY").unwrap_or_default(),
-            kp_instance_id: env::var("KEY_PROTECT_INSTANCE_ID").unwrap_or_default(),
-            kp_url: env::var("KEY_PROTECT_URL").unwrap_or_else(|_| "https://us-south.kms.cloud.ibm.com".into()),
-            zos_url: env::var("ZOS_CONNECT_URL").unwrap_or_default(),
-            zos_user: env::var("ZOS_CONNECT_USERNAME").unwrap_or_default(),
-            zos_pass: env::var("ZOS_CONNECT_PASSWORD").unwrap_or_default(),
-            http: reqwest::Client::new(),
-            iam_token: tokio::sync::Mutex::new(None),
-        }
-    }
-
-    async fn get_token(&self) -> Result<String, String> {
-        let mut token = self.iam_token.lock().await;
-        if let Some(t) = token.as_ref() { return Ok(t.clone()); }
-
-        let resp = self.http.post("https://iam.cloud.ibm.com/identity/token")
-            .form(&[("grant_type", "urn:ibm:params:oauth:grant-type:apikey"), ("apikey", &self.api_key)])
-            .send().await.map_err(|e| format!("IAM auth error: {e}"))?;
-
-        let body: Value = resp.json().await.map_err(|e| format!("IAM parse error: {e}"))?;
-        let t = body.get("access_token").and_then(|v| v.as_str()).ok_or("No access_token in IAM response")?.to_string();
-        *token = Some(t.clone());
-        Ok(t)
-    }
-
-    async fn kp_request(&self, method: &str, path: &str, body: Option<Value>) -> Result<Value, String> {
-        let token = self.get_token().await?;
-        let url = format!("{}/api/v2/{}", self.kp_url, path);
-        let mut req = match method {
-            "POST" => self.http.post(&url),
-            "DELETE" => self.http.delete(&url),
-            _ => self.http.get(&url),
-        };
-        req = req.bearer_auth(&token)
-            .header("bluemix-instance", &self.kp_instance_id)
-            .header("accept", "application/vnd.ibm.kms.key+json");
-
-        if let Some(b) = body { req = req.json(&b); }
-        let resp = req.send().await.map_err(|e| format!("KP error: {e}"))?;
-        let status = resp.status();
-        if !status.is_success() {
-            let text = resp.text().await.unwrap_or_default();
-            return Err(format!("Key Protect API error ({status}): {text}"));
-        }
-        resp.json::<Value>().await.map_err(|e| format!("JSON error: {e}"))
-    }
-
-    async fn zos_request(&self, method: &str, path: &str, body: Option<Value>) -> Result<Value, String> {
-        if self.zos_url.is_empty() { return Err("z/OS Connect not configured".into()); }
-        let url = format!("{}{}", self.zos_url, path);
-        let mut req = match method {
-            "POST" => self.http.post(&url),
-            _ => self.http.get(&url),
-        };
-        req = req.basic_auth(&self.zos_user, Some(&self.zos_pass));
-        if let Some(b) = body { req = req.json(&b); }
-        let resp = req.send().await.map_err(|e| format!("z/OS error: {e}"))?;
-        resp.json::<Value>().await.map_err(|e| format!("JSON error: {e}"))
-    }
-
-    /// Validate that an ID/name contains only safe characters (alphanumeric, hyphens, underscores)
-    fn validate_identifier(value: &str, field_name: &str) -> Result<(), String> {
-        if value.is_empty() {
-            return Err(format!("{field_name} is required"));
-        }
-        if value.len() > 256 {
-            return Err(format!("{field_name} exceeds maximum length"));
-        }
-        if !value.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
-            return Err(format!("{field_name} contains invalid characters"));
-        }
-        Ok(())
-    }
-
-    async fn call_tool(&self, name: &str, args: &Value) -> Result<Value, String> {
-        let s = |key: &str| args.get(key).and_then(|v| v.as_str()).unwrap_or("");
-        match name {
-            "key_protect_list_keys" => self.kp_request("GET", "keys", None).await,
-            "key_protect_create_key" => {
-                let key_name = s("name");
-                Self::validate_identifier(key_name, "name")?;
-                let payload = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, s("payload").as_bytes());
-                let extractable = s("key_type") != "root_key";
-                self.kp_request("POST", "keys", Some(json!({"metadata":{"collectionType":"application/vnd.ibm.kms.key+json","collectionTotal":1},"resources":[{"type":"application/vnd.ibm.kms.key+json","name":key_name,"extractable":extractable,"payload":payload}]}))).await
-            }
-            "key_protect_get_key" => {
-                let key_id = s("key_id");
-                Self::validate_identifier(key_id, "key_id")?;
-                self.kp_request("GET", &format!("keys/{key_id}"), None).await
-            }
-            "key_protect_delete_key" => {
-                let key_id = s("key_id");
-                Self::validate_identifier(key_id, "key_id")?;
-                self.kp_request("DELETE", &format!("keys/{key_id}"), None).await
-            }
-            "key_protect_rotate_key" => {
-                let key_id = s("key_id");
-                Self::validate_identifier(key_id, "key_id")?;
-                self.kp_request("POST", &format!("keys/{key_id}/actions/rotate"), Some(json!({}))).await
-            }
-            "key_protect_wrap_key" => {
-                let key_id = s("key_id");
-                Self::validate_identifier(key_id, "key_id")?;
-                self.kp_request("POST", &format!("keys/{key_id}/actions/wrap"), Some(json!({"plaintext": s("plaintext")}))).await
-            }
-            "key_protect_unwrap_key" => {
-                let key_id = s("key_id");
-                Self::validate_identifier(key_id, "key_id")?;
-                self.kp_request("POST", &format!("keys/{key_id}/actions/unwrap"), Some(json!({"ciphertext": s("ciphertext")}))).await
-            }
-            "key_protect_get_key_policies" => {
-                let key_id = s("key_id");
-                Self::validate_identifier(key_id, "key_id")?;
-                self.kp_request("GET", &format!("keys/{key_id}/policies"), None).await
-            }
-            "zos_connect_health" => self.zos_request("GET", "/zosConnect/healthz", None).await,
-            "zos_connect_list_services" => self.zos_request("GET", "/zosConnect/services", None).await,
-            "zos_connect_list_apis" => self.zos_request("GET", "/zosConnect/apis", None).await,
-            "zos_connect_get_service" => {
-                let service_name = s("service_name");
-                Self::validate_identifier(service_name, "service_name")?;
-                self.zos_request("GET", &format!("/zosConnect/services/{service_name}"), None).await
-            }
-            "zos_connect_call_service" => {
-                let service_name = s("service_name");
-                Self::validate_identifier(service_name, "service_name")?;
-                let body = args.get("payload").cloned().unwrap_or(json!({}));
-                self.zos_request("POST", &format!("/zosConnect/services/{service_name}"), Some(body)).await
-            }
-            _ => Err(format!("Unknown tool: {name}")),
-        }
-    }
-}
-
-fn tool_definitions() -> Value {
-    json!([
-        {"name":"key_protect_list_keys","description":"List all keys in Key Protect instance","inputSchema":{"type":"object","properties":{}}},
-        {"name":"key_protect_create_key","description":"Create a new encryption key","inputSchema":{"type":"object","properties":{"name":{"type":"string"},"key_type":{"type":"string","enum":["root_key","standard_key"],"default":"root_key"},"payload":{"type":"string","description":"Optional key material (base64)"}},"required":["name"]}},
-        {"name":"key_protect_get_key","description":"Get key details","inputSchema":{"type":"object","properties":{"key_id":{"type":"string"}},"required":["key_id"]}},
-        {"name":"key_protect_delete_key","description":"Delete a key","inputSchema":{"type":"object","properties":{"key_id":{"type":"string"}},"required":["key_id"]}},
-        {"name":"key_protect_rotate_key","description":"Rotate a root key","inputSchema":{"type":"object","properties":{"key_id":{"type":"string"}},"required":["key_id"]}},
-        {"name":"key_protect_wrap_key","description":"Wrap (encrypt) data with a root key","inputSchema":{"type":"object","properties":{"key_id":{"type":"string"},"plaintext":{"type":"string"}},"required":["key_id","plaintext"]}},
-        {"name":"key_protect_unwrap_key","description":"Unwrap (decrypt) data with a root key","inputSchema":{"type":"object","properties":{"key_id":{"type":"string"},"ciphertext":{"type":"string"}},"required":["key_id","ciphertext"]}},
-        {"name":"key_protect_get_key_policies","description":"Get key rotation policies","inputSchema":{"type":"object","properties":{"key_id":{"type":"string"}},"required":["key_id"]}},
-        {"name":"zos_connect_health","description":"Check z/OS Connect health","inputSchema":{"type":"object","properties":{}}},
-        {"name":"zos_connect_list_services","description":"List z/OS Connect services","inputSchema":{"type":"object","properties":{}}},
-        {"name":"zos_connect_list_apis","description":"List z/OS Connect APIs","inputSchema":{"type":"object","properties":{}}},
-        {"name":"zos_connect_get_service","description":"Get z/OS Connect service details","inputSchema":{"type":"object","properties":{"service_name":{"type":"string"}},"required":["service_name"]}},
-        {"name":"zos_connect_call_service","description":"Call a z/OS Connect service","inputSchema":{"type":"object","properties":{"service_name":{"type":"string"},"payload":{"type":"object"}},"required":["service_name"]}}
-    ])
-}
-
-#[derive(Deserialize)] struct JsonRpcRequest { #[allow(dead_code)] jsonrpc: String, id: Option<Value>, method: String, #[serde(default)] params: Value }
-#[derive(Serialize)] struct JsonRpcResponse { jsonrpc: String, id: Value, #[serde(skip_serializing_if = "Option::is_none")] result: Option<Value>, #[serde(skip_serializing_if = "Option::is_none")] error: Option<Value> }
+use client::IbmZClient;
+use psm_mcp_transport::server::McpServer;
+use std::sync::Arc;
+use tools::key_protect::{
+    CreateKeyTool, DeleteKeyTool, GetKeyPoliciesTool, GetKeyTool, ListKeysTool, RotateKeyTool,
+    UnwrapKeyTool, WrapKeyTool,
+};
+use tools::zos_connect::{
+    CallServiceTool, GetServiceTool, HealthTool, ListApisTool, ListServicesTool,
+};
 
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::fmt().with_env_filter(tracing_subscriber::EnvFilter::from_default_env()).with_writer(std::io::stderr).init();
-    let client = IbmZClient::new();
-    tracing::info!("ibmz-mcp-server starting");
-    let stdin = io::stdin(); let stdout = io::stdout();
-    for line in stdin.lock().lines() {
-        let line = match line { Ok(l) => l, Err(_) => break };
-        if line.trim().is_empty() { continue; }
-        let req: JsonRpcRequest = match serde_json::from_str(&line) { Ok(r) => r, Err(_) => continue };
-        let id = req.id.clone().unwrap_or(Value::Null);
-        let response = match req.method.as_str() {
-            "initialize" => Some(JsonRpcResponse { jsonrpc:"2.0".into(), id, result: Some(json!({"protocolVersion":"2024-11-05","capabilities":{"tools":{}},"serverInfo":{"name":"ibmz-mcp-server","version":env!("CARGO_PKG_VERSION")}})), error: None }),
-            "notifications/initialized" => None,
-            "tools/list" => Some(JsonRpcResponse { jsonrpc:"2.0".into(), id, result: Some(json!({"tools": tool_definitions()})), error: None }),
-            "tools/call" => {
-                let name = req.params.get("name").and_then(|v| v.as_str()).unwrap_or("");
-                let args = req.params.get("arguments").cloned().unwrap_or(json!({}));
-                let result = match client.call_tool(name, &args).await {
-                    Ok(v) => json!({"content":[{"type":"text","text":serde_json::to_string_pretty(&v).unwrap_or_default()}]}),
-                    Err(e) => json!({"content":[{"type":"text","text":format!("Error: {e}")}],"isError":true}),
-                };
-                Some(JsonRpcResponse { jsonrpc:"2.0".into(), id, result: Some(result), error: None })
-            }
-            other => Some(JsonRpcResponse { jsonrpc:"2.0".into(), id, result: None, error: Some(json!({"code":-32601,"message":format!("method not found: {other}")})) }),
-        };
-        if let Some(resp) = response {
-            let mut out = stdout.lock();
-            let _ = serde_json::to_writer(&mut out, &resp);
-            let _ = out.write_all(b"\n"); let _ = out.flush();
-        }
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .with_writer(std::io::stderr)
+        .init();
+
+    IbmZClient::check_env_vars();
+    let client = Arc::new(IbmZClient::new());
+
+    let mut server = McpServer::new("ibmz-mcp-server", env!("CARGO_PKG_VERSION"));
+
+    // Key Protect tools
+    server.register_tool(ListKeysTool {
+        client: Arc::clone(&client),
+    });
+    server.register_tool(CreateKeyTool {
+        client: Arc::clone(&client),
+    });
+    server.register_tool(GetKeyTool {
+        client: Arc::clone(&client),
+    });
+    server.register_tool(DeleteKeyTool {
+        client: Arc::clone(&client),
+    });
+    server.register_tool(RotateKeyTool {
+        client: Arc::clone(&client),
+    });
+    server.register_tool(WrapKeyTool {
+        client: Arc::clone(&client),
+    });
+    server.register_tool(UnwrapKeyTool {
+        client: Arc::clone(&client),
+    });
+    server.register_tool(GetKeyPoliciesTool {
+        client: Arc::clone(&client),
+    });
+
+    // z/OS Connect tools
+    server.register_tool(HealthTool {
+        client: Arc::clone(&client),
+    });
+    server.register_tool(ListServicesTool {
+        client: Arc::clone(&client),
+    });
+    server.register_tool(ListApisTool {
+        client: Arc::clone(&client),
+    });
+    server.register_tool(GetServiceTool {
+        client: Arc::clone(&client),
+    });
+    server.register_tool(CallServiceTool {
+        client: Arc::clone(&client),
+    });
+
+    tracing::info!("ibmz-mcp-server starting with {} tools", 13);
+
+    if let Err(e) = server.run_stdio().await {
+        tracing::error!(error = %e, "server exited with error");
+        std::process::exit(1);
     }
 }
